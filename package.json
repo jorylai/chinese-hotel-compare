@@ -1,0 +1,1 @@
+{"dependencies":{"@fly-ai/flyai-cli":"^1.0.16","@meituan-travel/ht-ai":"^0.0.6"},"description":"OTA 酒店多平台比价：美团 / 飞猪 / 携程","name":"ota-hotel-compare","private":true,"version":"0.2.0"}
