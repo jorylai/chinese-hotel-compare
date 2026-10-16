@@ -2,12 +2,12 @@
 
 能装在任意有浏览器功能的 personal agent，实现中国 OTA 全网比价。
 
-对同一酒店（或同一城市、同一入住/离店日期）做**美团 / 飞猪 / 携程**三平台价格比较。
+对同一酒店（或同一城市、同一入住/离店日期）做**美团 / 飞猪 / 携程 / 同程**四平台价格比较。
 包含一个可复用的比价工作流（`SKILL.md`，适配 AI Agent 调用）+ 一个开箱即用的比价脚本。
 
 ## 功能
 
-- **两阶段工作流**：先快速摸底锁定 1–3 家候选，再三平台精确比价
+- **两阶段工作流**：先快速摸底锁定 1–3 家候选，再四平台精确比价
 - **模糊关键词搜索**：从酒店全名提炼"品牌+地标"关键词（如"全季 中山北路"），人工对齐不同平台的酒店命名差异
 - **价格口径透明**：每个平台的价格口径、缺失字段都在文档里写清楚，不硬比不可比的
 - **图文卡片呈现**：酒店图 + 平台 + 价格 + 房型 + 关键政策 + 各平台下单跳转链接
@@ -53,7 +53,37 @@ npm install          # 安装 flyai 和 ht-ai 两个官方 CLI
   配置 `export TRIPAI_API_KEY=<key>` 或写入 `~/.config/tripai-skill/api_key`。
   官方仓库：[trips-ai/tripai-skill](https://github.com/trips-ai/tripai-skill)。
 
-### Trip.com
+### 同程（程心 skill）
+
+1. 同程官方 skill（同程网络科技股份有限公司发布）：[skillhub.cn/skills/org-wg0g2001/chengxin-tc](https://skillhub.cn/skills/org-wg0g2001/chengxin-tc)，脚本已收录在 `scripts/tongcheng/`。
+2. 去同程旅行 App（或微信小程序）搜「程心激活码」申领 API Key，配置：
+   ```bash
+   export CHENGXIN_API_KEY=<key>
+   ```
+3. 测试：
+   ```bash
+   node scripts/tongcheng/scripts/hotel-query.js --destination "北京" --extra "望京科技园桔子水晶 10月17日入住 10月18日离店" --channel webchat --surface webchat
+   ```
+   返回酒店名、价格、评分、设施、地址、ly.com 预订短链。未配 Key 有极少量试用额度。
+
+### TripGenie（Trip.com 官方，实时价）
+
+1. 去 [www.trip.com/tripgenie/openclaw](https://www.trip.com/tripgenie/openclaw) 申请 API Key。
+2. 配置：
+   ```bash
+   export TRIPGENIE_API_KEY=<key>
+   ```
+3. 测试：
+   ```bash
+   python3 scripts/tripgenie-query.py --query "北京望京科技园桔子水晶酒店10月18日入住10月19日离店价格"
+   ```
+   返回实时价格、房型、预订链接（Markdown 格式，需自行解析）。
+
+> 注：TripGenie 官方定位国际旅行；国内酒店更对口的是 TripAI（携程问道），
+> Key 去 [www.ctrip.com/wendao/openclaw](https://www.ctrip.com/wendao/openclaw) 申请，
+> 配 `TRIPAI_API_KEY`。本仓库暂用匿名问道接口（低频可用）。
+
+### Trip.com（无 Key 时）
 
 无需配置，浏览器人工查实时价。
 
@@ -78,7 +108,7 @@ python3 scripts/compare_hotels.py --city 杭州 --check-in 2026-11-20 --check-ou
 Skill 内定义了完整工作流：
 
 1. **阶段一 · 快速摸底**：用美团查大概价格/位置锁定候选；查基础信息（面积/床型/设施/开业时间/评分）时美团 + 携程问道同时检索、两边对照
-2. **阶段二 · 三平台比价**：美团（`ht-ai` CLI）、飞猪（`flyai` CLI）、携程（浏览器查 trip.com 实时价），三个平台都要返回结果
+2. **阶段二 · 四平台比价**：美团（`ht-ai` CLI）、飞猪（`flyai` CLI）、携程（浏览器查 trip.com 实时价）、同程（程心 `hotel-query.js`），四个平台都要返回结果
 3. **呈现**：图文卡片，每家酒店含图片、各平台价格、下单跳转链接；结论先行
 
 触发词：`比价`、`酒店比价`、`查酒店价格`
@@ -92,7 +122,8 @@ Skill 内定义了完整工作流：
 | 美团 | 约价（"￥xxx起/晚"），有时脱敏；自然语言接口无结构化产品字段，可能混有团购口径，**仅作参考量级** |
 | 飞猪 | 酒店级聚合价（正式 Key 下明码）；非房型级可订价 |
 | Trip.com | 浏览器实时可订价，以页面为准（含税/不含税需注明；港币需按当日汇率换算） |
-| 携程问道 | 区间/参考价；非保证可订价 |
+| 同程 | 程心 API 实时价；需 `CHENGXIN_API_KEY` |
+| 携程问道 | 最低起价参考 + 全房型清单；全房型逐个实时可订价经常拿不到 |
 
 各接口能返回哪些字段（面积、床型、设施、评分……），见 `docs/INTERFACE_FIELDS.md` 对照表。
 

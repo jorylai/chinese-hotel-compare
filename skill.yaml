@@ -1,7 +1,7 @@
 name: ota_compare
 display_name: OTA 酒店多平台比价
-description: 对同一城市同一日期做飞猪/美团/携程多平台酒店价格比较（比价 城市 入住日期 离店日期）
-version: 0.2.0
+description: 对同一城市同一日期做美团/飞猪/携程/同程四平台酒店价格比较（比价 城市 入住日期 离店日期）
+version: 0.1.0
 entry: SKILL.md
 triggers:
   - "比价"
