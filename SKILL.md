@@ -13,12 +13,11 @@
 |---|---|
 | 美团 | `custom.meituan-travel` 连接器（保险库凭证） |
 | 飞猪 | 官方 `flyai` CLI（`~/.flyai/config.json` 已配正式 Key） |
-| 携程 | 浏览器查 trip.com 实时价（或 TripGenie API） |
-| 同程 | 程心 skill `hotel-query.js`（`~/workspace/ota-tools/tongcheng/`，需 `CHENGXIN_API_KEY`） |
+| 携程 | 默认携程问道匿名接口；非必要不走 Trip.com 浏览器 |
+| 同程 | 程心 skill `hotel-query.js`（`~/workspace/ota-tools/tongcheng/`，需 `CHENGXIN_API_KEY`），默认渠道 |
 
-携程问道用"我需要查询xx酒店的所有房型的价格"问法拿起价参考和全房型清单（2026-10-16 实测）；
-返回的是参考价；全房型逐个实时可订价拿不到时才用 Trip.com 浏览器补充，浏览器不是默认兜底。
-不作为比价主数据源。
+渠道优先级（用户 2026-10-16 指定）：携程默认走问道、同程默认走程心 skill，
+浏览器只在必要时用（用户明确要各房型实时可订价而默认渠道没给全）。
 
 ## 两阶段工作流（用户 2026-10-15 指定）
 
@@ -41,7 +40,7 @@
   不同平台酒店名可能有差异
   （如"全季酒店(杭州城站地铁站西湖大道店)" vs "全季酒店杭州火车城站西湖大道店"），
   靠人工判断对齐是同一家。
-- 美团、飞猪、同程走各自 skill/CLI；携程走浏览器 trip.com 实时价（或 TripGenie API）。
+- 美团、飞猪、同程走各自 skill/CLI；携程默认走携程问道（非必要不走浏览器）。
 
 ### 最终呈现：图文并茂（用户 2026-10-16 规范）
 
@@ -93,35 +92,9 @@ decorationTime、interestsPoi、latitude/longitude、mainPic、detailUrl、shId�
 注意：价格为酒店级聚合价，非房型级；无面积、无房型详情。
 Key 在 `~/.flyai/config.json`（用户轮换后需重新配置）。
 
-**3. 携程**（Trip.com 实时价，两种方式）
+**3. 携程**（默认走携程问道；非必要不走浏览器）
 
-方式 A — TripGenie API（推荐，有 Key 时）：
-```bash
-export TRIPGENIE_API_KEY=<key>  # 去 www.trip.com/tripgenie/openclaw 申请
-python3 ~/workspace/ota-tools/tripgenie-query.py \
-  --query "<酒店全名><入住日期>入住<离店日期>离店，1间房2人，价格"
-```
-返回 Markdown（自然语言）：房型、价格、预订链接等。需自行解析。
-注意：TripGenie 官方定位国际旅行；国内酒店更对口的是 TripAI（携程问道，`TRIPAI_API_KEY`）。
-
-方式 B — 浏览器查 trip.com 实时价（无 Key 时）：
-用 `browser.spawn_task`，任务描述包含：酒店全名、入住/离店日期（YYYY-MM-DD）、
-间数、人数，要求返回基础房型名、每晚价格（含税优先，注明货币）、
-是否含早、取消政策、价格页面 URL。只查价，不登录、不下单。
-
-**4. 同程**（程心 skill，官方数据）
-```bash
-export CHENGXIN_API_KEY=<key>  # 去同程旅行 App 搜"程心激活码"申领
-node ~/workspace/ota-tools/tongcheng/scripts/hotel-query.js \
-  --destination "<城市>" --extra "<酒店关键词 入住日期入住 离店日期离店>" \
-  --channel webchat --surface webchat
-```
-返回表格：酒店名、价格、类型、评分、设施、地址、预订链接（ly.com 短链）。
-注意：未配 Key 时仅有极少量试用额度（约1次）；价格为同程实时价。
-
-**5. 携程问道**（全房型价格清单 + 基础信息）
-
-查某酒店全部房型价格时，用以下问法（2026-10-16 实测有效）：
+默认用携程问道匿名接口：
 ```bash
 curl -s -X POST 'https://wendao-skill-prod.ctrip.com/skill/query' \
   -H 'Content-Type: application/json' \
@@ -132,10 +105,38 @@ curl -s -X POST 'https://wendao-skill-prod.ctrip.com/skill/query' \
 注意（2026-10-16 实测结论）：
 - 问道能给**最低起价参考**（如"最低约¥918/晚"），一次没拿到可重试 1–2 次；
   返回的是参考价，实际各房型价格会浮动。
-- **全房型逐个的实时可订价**经常拿不到（如某次 9 个房型一个价格都没给）。
-  只有当用户明确要各房型实时可订价、而问道没给全时，才用 Trip.com 浏览器补充。
-  浏览器不是默认兜底。
+- **全房型逐个的实时可订价**经常拿不到。
 - 优势是房型清单最全（含面积/床型/楼层/早餐份数），适合做基础信息对照。
+
+以下情况才走 Trip.com（非必要不走浏览器）：
+- 用户明确要各房型实时可订价、而问道没给全时；
+- 此时优先 TripGenie API（有 Key 时），其次浏览器。
+
+TripGenie API（有 Key 时）：
+```bash
+export TRIPGENIE_API_KEY=<key>  # 去 www.trip.com/tripgenie/openclaw 申请
+python3 ~/workspace/ota-tools/tripgenie-query.py \
+  --query "<酒店全名><入住日期>入住<离店日期>离店，1间房2人，价格"
+```
+返回 Markdown（自然语言）：房型、价格、预订链接等。需自行解析。
+注意：TripGenie 官方定位国际旅行；国内酒店更对口的是 TripAI（携程问道，`TRIPAI_API_KEY`）。
+
+浏览器查 trip.com 实时价（最后手段）：
+用 `browser.spawn_task`，任务描述包含：酒店全名、入住/离店日期（YYYY-MM-DD）、
+间数、人数，要求返回基础房型名、每晚价格（含税优先，注明货币）、
+是否含早、取消政策、价格页面 URL。只查价，不登录、不下单。
+
+**4. 同程**（默认走程心 skill；非必要不走浏览器）
+
+```bash
+export CHENGXIN_API_KEY=<key>  # 去同程旅行 App 搜"程心激活码"申领
+node ~/workspace/ota-tools/tongcheng/scripts/hotel-query.js \
+  --destination "<城市>" --extra "<酒店关键词 入住日期入住 离店日期离店>" \
+  --channel webchat --surface webchat
+```
+返回表格：酒店名、价格、类型、评分、设施、地址、预订链接（ly.com 短链）。
+注意：未配 Key 时仅有极少量试用额度（约1次）；价格为同程实时价。
+同程侧默认只用程心 skill，不走浏览器。
 
 ## 价格口径对照（汇报时必须说明）
 
@@ -144,10 +145,10 @@ curl -s -X POST 'https://wendao-skill-prod.ctrip.com/skill/query' \
   默认返回疑似团购口径而非日历房实时价。query 中明确要求"日历房、排除团购"后接口声称已排除，
   但无结构化字段可独立验证。美团侧价格仅作参考量级，不可与飞猪/Trip.com 日历房价严格对比。
 - 飞猪：酒店级聚合价（明码）；非房型级可订价。
-- 同程：实时价（程心 API）；试用额度有限，正式使用需配 Key。
-- Trip.com（浏览器）：实时可订价，以页面为准（含税/不含税要注明）。
-- 携程问道：最低起价参考 + 全房型清单/基础信息最全；全房型逐个实时可订价经常拿不到，
-  此时才用 Trip.com 浏览器补充（浏览器不是默认兜底）。
+- 同程：实时价（程心 skill，默认渠道）；试用额度有限，正式使用需配 Key。
+- 携程：默认携程问道（最低起价参考 + 全房型清单/基础信息最全）；
+  全房型逐个实时可订价拿不到、且用户明确需要时，才走 TripGenie API 或 Trip.com 浏览器。
+  浏览器非必要不走。
 
 同房型对比时先对齐房型名；房型不同（如"家庭套房" vs "亲子家庭房"）不可直接比，
 汇报时明确指出。
